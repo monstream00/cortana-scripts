@@ -1,4 +1,32 @@
 # Cortana script to discover strange new networks.
+#                                                           _
+#                                                          //
+#                                                         //
+#                                         _______________//__
+#                                       .(______________//___).
+#                                       |              /      |
+#                                       |. . . . . . . / . . .|
+#                                       \ . . . . . ./. . . . /
+#                                        |           / ___   |
+#                    _.---._             |::......./../...\.:|
+#                _.-~       ~-._         |::::/::\::/:\::::::|
+#            _.-~               ~-._     |::::\::/::::::X:/::|
+#        _.-~                       ~---.;:::::::/::\::/:::::|
+#    _.-~                                 ~\::::::n::::::::::|
+# .-~                                    _.;::/::::a::::::::/
+# :-._                               _.-~ ./::::::::d:::::::|
+# `-._~-._                   _..__.-~ _.-~|::/::::::::::::::|
+#  /  ~-._~-._              / .__..--~----.YWWWWWWWWWWWWWWWP'
+# \_____(_;-._\.        _.-~_/       ~).. . \
+#    /(_____  \`--...--~_.-~______..-+_______)
+#  .(_________/`--...--~/    _/           /\
+# /-._     \_     (___./_..-~__.....__..-~./
+# `-._~-._   ~\--------~  .-~_..__.-~ _.-~
+#     ~-._~-._ ~---------'  / .__..--~
+#         ~-._\.        _.-~_/
+#             \`--...--~_.-~
+#              `--...--~
+#
 # by monstream00
 # Step 1. When a session opens, grab its routes.
 on session_sync {
@@ -27,6 +55,8 @@ on meterpreter_hashdump {
 			$temphoststore = session_host($1);
 			println("[*] Dumping $temphoststore session $1 : $user $hash into database!");
 			$count += 1;
+			$console = console();
+			cmd($console, "echo [*] `date` Dumping $temphoststore session $1 : $user $hash into database! >> /opt/metasploit/msf3/data/armitage/cortana.log");
 		}
 	}
 	#println("[*] Finshed saveing $count hashes on " . session_host($1));

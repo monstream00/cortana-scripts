@@ -25,6 +25,6 @@ on service_add_445 {
 	}
 }
 
-on session_open {
-	println("Session $1 opened. I got " . session_host($1) . " with " . session_exploit($1));
-}
+#on session_open {
+#	println("Session $1 opened. I got " . session_host($1) . " with " . session_exploit($1));
+#}

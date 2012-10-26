@@ -1,0 +1,7 @@
+on session_open {
+	println("[*] Session $1 opened. I got " . session_host($1) . " with " . session_exploit($1));
+	$theHost = session_host($1);
+	$theExploit = session_exploit($1);
+	$console = console();	
+	cmd($console, "echo [*] `date` Session $1 opened. I got $theHost with $theExploit >> /opt/metasploit/msf3/data/armitage/cortana.log");			
+}
